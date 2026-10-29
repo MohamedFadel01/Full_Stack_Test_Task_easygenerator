@@ -26,6 +26,14 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   JWT_EXPIRES_IN?: string;
+
+  @IsOptional()
+  @IsString()
+  THROTTLE_LIMIT?: string;
+
+  @IsOptional()
+  @IsString()
+  THROTTLE_TTL_MS?: string;
 }
 
 export function validateEnvironment(

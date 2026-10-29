@@ -1,12 +1,6 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
+import { configureHttpApp } from '../../src/configure-http-app.js';
 
 export function applyAppConfiguration(app: INestApplication): void {
-  app.setGlobalPrefix('api');
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  configureHttpApp(app);
 }
