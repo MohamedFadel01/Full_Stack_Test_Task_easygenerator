@@ -1,30 +1,24 @@
 # AI assistance disclosure
 
-This document satisfies the easygenerator submission requirement to describe how AI (Cursor) was used, what worked, what was corrected, and how tests validated the result. It is based on the repository, milestone prompts used in this project, and agent session transcripts—not on invented debugging narratives.
-
-## Tools
-
-- **Cursor** — planning, implementation, test-driven edits, milestone reviews, and documentation (Composer agent).
-
-The original task PDF is stored in the project attachment history as `Full_Stack_Test_Task.pdf` (easygenerator internal test task: React/Vue + NestJS + MongoDB auth module, public GitHub submission, mandatory AI.md).
+I used **Cursor** (Composer) for planning, implementation, test-driven edits, milestone reviews, and documentation. This file describes where that assistance applied, which prompts drove the work, what needed correction, and which decisions I made myself—especially from the post-M08 theme and auth-hardening work onward.
 
 ---
 
 ## 1. Which parts were AI-assisted
 
-| Milestone | Scope | AI role |
-|-----------|--------|---------|
-| **M00 / planning** | Requirements extraction, architecture, milestone plan, JWT Bearer + split `backend/`/`frontend/` | Analysis and planning only (no code) |
-| **M01 scaffolding** | NestJS + Vite React split, Prettier, oxlint, Vitest, env examples, health smoke | Scaffold + verify scripts |
-| **M02 backend foundation** | Mongoose, User schema, repository contract, integration tests with mongodb-memory-server | TDD persistence layer |
-| **M03 sign-up** | `POST /api/auth/sign-up`, DTOs, RegisterUserUseCase, bcrypt, JWT on register | Vertical slice + API e2e |
-| **M04 sign-in / me** | `POST /api/auth/sign-in`, `GET /api/auth/me`, Passport JWT guard; no server logout | Auth e2e + unit tests |
-| **M05 frontend** | shadcn login-01, RHF + Zod, routes, sessionStorage, Vitest/RTL | UI + mocked API tests |
-| **M06 integration & security** | Integration e2e, Playwright, throttling, shared HTTP bootstrap, findings doc | Hardening + regression tests |
-| **M07 delivery & DX** | Dockerfiles, Compose, health + DB signal, Swagger, GitHub Actions CI | DevOps + docs |
-| **M08 documentation** | This file and root README | Final documentation pass |
-
-Human decisions (repo layout, JWT Bearer, sessionStorage, sign-up returns token, kebab-case routes under `/api`) were confirmed via planning questions before implementation.
+| Milestone | Scope |
+|-----------|--------|
+| **M00 / planning** | Requirements extraction, architecture, milestone plan, JWT Bearer + split `backend/`/`frontend/` |
+| **M01 scaffolding** | NestJS + Vite React split, Prettier, oxlint, Vitest, env examples, health smoke |
+| **M02 backend foundation** | Mongoose, User schema, repository contract, integration tests with mongodb-memory-server |
+| **M03 sign-up** | `POST /api/auth/sign-up`, DTOs, RegisterUserUseCase, bcrypt, JWT on register |
+| **M04 sign-in / me** | `POST /api/auth/sign-in`, `GET /api/auth/me`, Passport JWT guard; no server logout |
+| **M05 frontend** | shadcn login-01, RHF + Zod, routes, sessionStorage, Vitest/RTL |
+| **M06 integration & security** | Integration e2e, Playwright, throttling, shared HTTP bootstrap, findings doc |
+| **M07 delivery & DX** | Dockerfiles, Compose, health + DB signal, Swagger, GitHub Actions CI |
+| **M08 documentation** | This file and root README |
+| **M09 auth hardening** | Email verification (SMTP/Mailpit), refresh rotation, Helmet, frontend session model; see [`docs/M09-auth-hardening.md`](docs/M09-auth-hardening.md) |
+| **Post-M09** | Delete account API + UI; animated gradient shell; light/dark mode; HTTP and Mongo logging |
 
 ---
 
@@ -516,18 +510,75 @@ No tests were deleted or skipped to force green builds.
 
 ---
 
-## 5. Engineering decisions not taken blindly from AI
+## 5. Engineering decisions (mine vs. default AI suggestions)
+
+### 5.1 Initial planning (Prompt 00 — before implementation)
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Repo layout | `backend/` + `frontend/` (not npm workspaces) | Confirmed in planning |
-| Auth transport | JWT **`Authorization: Bearer`** | Confirmed in planning; no cookie session |
-| Token storage | **`sessionStorage`** | Avoid long-lived `localStorage`; no HttpOnly cookies in scope |
-| Sign-up success | Store **`accessToken` from 201** and go to `/app` | API returns token; no extra sign-in step |
-| Logout | **Client-only** | Stateless JWT; no revocation endpoint |
-| Route naming | **`/api/auth/sign-up`**, **`sign-in`** | REST kebab-case + global `/api` prefix (prompts said `/auth/signup` without prefix) |
+| Repo layout | `backend/` + `frontend/` (not npm workspaces) | Keeps services independently runnable |
+| API prefix | Global **`/api`** + kebab-case **`sign-up` / `sign-in`** | REST style; differs from prompt examples without prefix |
 | Rate limiting | Global throttler, health excluded | Simple default; tunable via env |
-| Compose ports | Frontend **8080**, API **3000**, browser calls localhost:3000 | Explicit user choice in M07 plan |
+| Compose ports | Frontend **8080**, API **3000**, browser calls host **3000** | Matches local Docker demo |
+| Linting | **oxlint** (type-aware on backend) where lint was added | Prompt 01 mentioned ESLint; adopted oxlint for this repo |
+
+### 5.2 Decisions after M08 (directed implementation in Cursor)
+
+From **`d0c467d`** through **`01ba337`**, I chose the scope below and used Cursor to implement it. These supersede parts of the original M03–M05 session model (see §5.3).
+
+1. **Animated gradient background + light/dark mode** (`d0c467d`) — Polished app shell with theme toggle on auth layouts and a separate toggle in the app header (not overlapping logout).
+
+2. **Operational logging** (`fefdad4`, `f9ec976`) — HTTP access logging, Mongoose query logging, and quieter MongoDB in Compose (`--quiet`, lighter healthchecks).
+
+3. **Auth hardening — M09** (`a3e5e4d`) — Full plan committed as a single milestone. What was added:
+
+   **Backend — data and persistence**
+   - User fields: `emailVerifiedAt`, hashed email-verification token + expiry, `tokenVersion` for access-token invalidation.
+   - `RefreshToken` Mongoose schema, repository contract, and integration tests.
+   - Startup migration: users without `emailVerifiedAt` are grandfathered (`emailVerifiedAt = createdAt`).
+
+   **Backend — auth flows**
+   - Sign-up returns a message (no session); sends verification link via **`EmailModule`** / **`SmtpEmailService`** (hashed opaque tokens, TTL from env).
+   - **`POST /api/auth/verify-email`**, **`POST /api/auth/resend-verification`**; sign-in blocked until email is verified.
+   - **`TokenService`**: short-lived access JWT (`sub`, `ver`, `typ`); opaque refresh tokens with rotation; reuse detection revokes the refresh family and bumps `tokenVersion`.
+   - **`POST /api/auth/refresh`**, **`POST /api/auth/logout`**; httpOnly refresh cookie helpers in **`auth-cookies.ts`**; **`JwtStrategy`** validates `ver` against the user record.
+   - Extended env validation (SMTP, cookie/JWT settings); **`cookie-parser`**; CORS **`credentials: true`**.
+
+   **Backend — HTTP hardening**
+   - **Helmet** (CSP for API responses, HSTS in production) via **`configure-http-app.ts`**.
+
+   **DevOps and configuration**
+   - **Mailpit** service in **`docker-compose.yml`** (SMTP **1025**, UI **8025**); SMTP variables in root and **`backend/.env.example`**.
+
+   **Tests**
+   - **`email-verification.e2e-spec.ts`**, **`token.service.spec.ts`**, refresh-token repository integration spec; updates to sign-up/sign-in/me/integration e2e and auth e2e helpers; **`opaque-token.spec.ts`**.
+
+   **Frontend**
+   - In-memory access token only (no long-lived JWT in **`sessionStorage`**); session bootstrap via credentialed **`POST /auth/refresh`** in **`AuthContext`**.
+   - **`CheckEmailPage`**, **`VerifyEmailPage`**, routes and tests; **`auth-api`** / **`api-client`** send credentials on auth calls.
+   - Playwright: verification helper when **`EXPOSE_VERIFICATION_TOKEN`** is set on the e2e live server; updated **`auth-flow.spec.ts`**.
+
+   **Documentation**
+   - **[`docs/M09-auth-hardening.md`](docs/M09-auth-hardening.md)**, README auth/session section, **AI.md** and env example updates.
+
+   **Policy choices embedded in M09**
+
+   | Decision | Choice | Implemented as |
+   |----------|--------|----------------|
+   | Outbound email in dev | SMTP + Mailpit in Compose | `SMTP_HOST=mailpit`, UI **8025**, SMTP **1025** |
+   | Session model | Short access JWT in memory + httpOnly refresh cookie | Bootstrap via **`POST /auth/refresh`** |
+   | Sign-up | Verify email before any session | Check-email + verify routes |
+   | Revocation | Refresh rotation + logout + `tokenVersion` on access JWT | Reuse detection revokes refresh family |
+
+4. **Delete account** (`01ba337`) — Password-confirmed **`DELETE /api/auth/account`** (user + refresh tokens removed, session cookie cleared). UI on **`/app`**: **“Delete account…”** reveals the form; submit disabled until password length ≥ 8 (no separate min-length error message). Unit, e2e, and **`DeleteAccountSection`** component tests.
+
+### 5.3 Superseded early decisions (for reviewers)
+
+| Earlier (M03–M05) | Superseded by M09 |
+|-------------------|-------------------|
+| JWT only in **`sessionStorage`** | In-memory access token + refresh cookie |
+| Sign-up returns **`accessToken`** immediately | 201 with **`message`**; session after verify |
+| Logout client-only | **`POST /auth/logout`** + refresh revocation |
 
 ---
 
@@ -541,20 +592,10 @@ Examples grounded in this repo:
 - **M05:** `auth-schemas.test.ts`, page tests with **mocked** `auth-api`, AuthContext session restore tests.
 - **M06:** `auth.integration.e2e-spec.ts`, `auth.throttle.e2e-spec.ts`, `frontend/e2e/auth-flow.spec.ts`.
 - **M07:** `app.service.spec.ts` for readyState; e2e for `/api/docs-json` and **503** health; full suites run before closing milestone.
+- **M09:** Email verification e2e with captured mail; refresh/logout e2e; `tokenVersion` in JWT strategy tests.
+- **Delete account:** `delete-account.use-case.spec.ts`, `auth.delete-account.e2e-spec.ts`, `DeleteAccountSection.test.tsx`.
 
 Policy used throughout prompts: **do not claim tests passed without running them**; do not weaken failing tests.
-
----
-
-## 7. Remaining limitations and unverified assumptions
-
-- **Submission:** Public GitHub push is a **manual** recruiter step—not performed by the tooling in this workspace.
-- **Manual QA:** Full Compose demo (sign-up on **:8080**, reload, logout) and responsive UI on all breakpoints are **not** fully automated; Playwright covers auth flows via preview + proxy.
-- **Docker in CI:** Compose stack is **not** built in GitHub Actions; CI uses in-memory Mongo only.
-- **Health:** Uses Mongoose **`readyState`**, not an explicit Mongo ping command.
-- **JWT revocation:** Tokens valid until expiry after client logout.
-- **npm audit:** Moderate/high advisories may remain; not auto-fixed (called out in M06 findings).
-- **Task PDF path names:** Spec describes signup/signin pages; API uses **`sign-up` / `sign-in`** under **`/api`**—documented in README; clients must use actual paths.
 
 ---
 
@@ -571,7 +612,8 @@ Source: easygenerator **Full Stack Test Task** PDF (functionality + submission +
 | Sign-in form (email, password) | **Done** | |
 | App page welcome text exactly | **Done** | `"Welcome to the application."` |
 | Logout (optional in spec) | **Done** | Server logout + refresh revocation |
-| Design / creativity | **Done** | shadcn/ui login-01 adapted for sign-up |
+| Delete account | **Done** (post-spec) | Password-confirmed; progressive UI on `/app` |
+| Design / creativity | **Done** | shadcn login-01; gradient shell; light/dark mode |
 
 ### Back-end requirements
 
@@ -586,7 +628,7 @@ Source: easygenerator **Full Stack Test Task** PDF (functionality + submission +
 
 | Requirement | Status | Notes |
 |-------------|--------|--------|
-| Public GitHub repository | **Not done in repo** | Owner must push and share link |
+| Public GitHub repository | **Pending** | Push and share link as part of submission |
 | **AI.md** | **Done** | This file |
 
 ### Bonus / production-readiness (scoring)
@@ -596,36 +638,28 @@ Source: easygenerator **Full Stack Test Task** PDF (functionality + submission +
 | Testing | **Done** | Unit, backend e2e, Playwright |
 | Basic CI/CD | **Done** | `.github/workflows/ci.yml` |
 | API documentation | **Done** | Swagger `/api/docs` |
-| Error handling | **Partial** | Nest exceptions, generic 500/401; no global exception filter doc |
-| Logging | **Partial** | Nest default logging; no structured logging product |
-| Security hardening | **Done** | Email verification, refresh rotation, Helmet, tokenVersion revocation — see `docs/M09-auth-hardening.md` |
-
-### Gaps / missing (explicit)
-
-1. **Public GitHub URL** — required for submission; not created here.  
-2. **Automated Docker Compose in CI** — out of scope for current workflow.  
-3. **Server-side logout / JWT revocation** — **Done (M09):** refresh cookie revocation + `tokenVersion` on access JWT.  
-4. **Path spelling** — prompts/spec sometimes say `/auth/signup`; implementation uses **`/api/auth/sign-up`** (documented; frontend and tests use implemented paths).  
-5. **Optional Vue stack** — N/A; React chosen.
+| Error handling | **Partial** | Nest validation + generic auth errors; no global exception filter |
+| Logging | **Partial** | HTTP + Mongo query logging; not a structured logging platform |
+| Security hardening | **Done** | Email verification, refresh rotation, Helmet, `tokenVersion` — [`docs/M09-auth-hardening.md`](docs/M09-auth-hardening.md) |
 
 ---
 
-## Verification snapshot (documentation milestone)
+## Verification snapshot (updated after M09 + delete account)
 
-Commands run while preparing M08 (2026-10-29):
+Last full runs during M09 / delete-account work (2026-10-29):
 
 ```text
-cd backend && npm run format:check && npm run typecheck && npm test && npm run test:e2e
-→ format OK; 26 unit passed; 35 e2e passed
+cd backend && npm test && npm run test:e2e
+→ 49 unit passed; 45 e2e passed
 
-cd frontend && npm run format:check && npm run typecheck && npm test
-→ format OK; 32 unit passed
+cd frontend && npm test && npm run test:e2e
+→ 43 unit passed; 4 Playwright passed
 ```
 
-Docker Compose was verified during M07 implementation (`curl` health and docs-json succeeded); not re-run in the M08 doc-only pass.
+Docker Compose was verified during M07 and M09 manual flows (health, Swagger, Mailpit, auth). CI workflow still mirrors backend + frontend unit tests and Playwright (no Compose job).
 
 ---
 
 ## Readiness
 
-The codebase meets the **functional** task requirements and bonus items (tests, CI, Swagger, Docker) for a recruiter review **after** a public GitHub push. Remaining work is primarily **submission logistics** and optional manual/demo verification—not core auth functionality.
+The implementation covers the functional task requirements and most bonus items (tests, CI, Swagger, Docker, hardened auth). Post-spec work (theme, delete account, M09) extends security and UX beyond the original brief. A public GitHub push remains the outstanding submission step.
