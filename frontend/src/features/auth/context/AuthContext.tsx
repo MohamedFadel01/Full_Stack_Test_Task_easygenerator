@@ -22,7 +22,7 @@ type AuthContextValue = {
   user: SafeUser | null;
   status: AuthStatus;
   setSession: (user: SafeUser, accessToken: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -31,40 +31,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
 
-  const logout = useCallback(() => {
-    clearAccessToken();
-    setUser(null);
-    setStatus('unauthenticated');
-  }, []);
-
   const setSession = useCallback((nextUser: SafeUser, accessToken: string) => {
     setAccessToken(accessToken);
     setUser(nextUser);
     setStatus('authenticated');
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logoutSession();
+    } catch {
+      // Clear local session even if the network call fails.
+    }
+    clearAccessToken();
+    setUser(null);
+    setStatus('unauthenticated');
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
-      const token = getAccessToken();
-      if (!token) {
-        if (!cancelled) {
-          setStatus('unauthenticated');
+      const existingToken = getAccessToken();
+      if (existingToken) {
+        try {
+          const { user: currentUser } = await authApi.getMe(existingToken);
+          if (!cancelled) {
+            setUser(currentUser);
+            setStatus('authenticated');
+          }
+          return;
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            clearAccessToken();
+          }
         }
-        return;
       }
 
       try {
-        const { user: currentUser } = await authApi.getMe(token);
+        const session = await authApi.refreshSession();
         if (!cancelled) {
-          setUser(currentUser);
-          setStatus('authenticated');
+          setSession(session.user, session.accessToken);
         }
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          clearAccessToken();
-        }
+      } catch {
         if (!cancelled) {
           setUser(null);
           setStatus('unauthenticated');
@@ -77,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setSession]);
 
   const value = useMemo(
     () => ({

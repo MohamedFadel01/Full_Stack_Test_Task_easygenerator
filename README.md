@@ -6,13 +6,15 @@ Production-oriented authentication module: **NestJS 12** API with **MongoDB**, *
 
 | Area | Delivered |
 |------|-----------|
-| **Sign-up** | `POST /api/auth/sign-up` with email, name, and password validation; bcrypt storage; **201** with `user` + `accessToken` |
-| **Sign-in** | `POST /api/auth/sign-in`; generic **401** `"Invalid credentials"` |
-| **Protected API** | `GET /api/auth/me` (Bearer JWT); returns `{ user }` with safe fields only |
+| **Sign-up** | `POST /api/auth/sign-up` — creates **unverified** user, sends verification email; **201** with `user` + `message` (no JWT) |
+| **Email verify** | `POST /api/auth/verify-email`, `POST /api/auth/resend-verification`; link opens `/verify-email?token=…` on the SPA |
+| **Sign-in** | `POST /api/auth/sign-in` after verification; **403** `EMAIL_NOT_VERIFIED` if pending |
+| **Session refresh / logout** | `POST /api/auth/refresh` (httpOnly cookie), `POST /api/auth/logout` (revokes refresh, bumps `tokenVersion`) |
+| **Protected API** | `GET /api/auth/me` (Bearer access JWT with `typ` + `ver` claims) |
 | **Health** | `GET /api/health` — **200** when Mongo is connected, **503** when not |
-| **Frontend** | `/sign-up`, `/sign-in`, protected `/app` with exact welcome text; shadcn/ui **login-01** layout; client logout |
-| **Session** | JWT in **`sessionStorage`**; reload restores session via `/auth/me`; no server logout endpoint |
-| **Hardening** | Global rate limiting on auth routes; `/api/health` excluded; integration + Playwright e2e |
+| **Frontend** | `/sign-up`, `/check-email`, `/verify-email`, `/sign-in`, protected `/app`; server logout |
+| **Session** | Access JWT in **memory**; refresh in **httpOnly** cookie; reload restores via `/auth/refresh` |
+| **Hardening** | Helmet (CSP, HSTS in production), rate limiting, CORS with credentials, [`docs/M09-auth-hardening.md`](docs/M09-auth-hardening.md) |
 | **Logging** | HTTP access lines on the backend (`HTTP` logger); MongoDB operations logged via backend `MongoDB` logger (not health probes) |
 | **DX** | Multi-stage Dockerfiles, root Compose (Mongo + API + nginx SPA), Swagger at `/api/docs`, CI workflow |
 
@@ -33,7 +35,7 @@ Interactive API docs: **http://localhost:3000/api/docs** (when the backend is ru
 
 ```text
 Browser ──► React SPA (Vite dev :5173 or nginx :8080 in Compose)
-              │  Authorization: Bearer <JWT> (sessionStorage)
+              │  Authorization: Bearer <access JWT> (in-memory) + refresh cookie
               ▼
          NestJS /api/*  ──►  Mongoose  ──►  MongoDB
               │
@@ -104,7 +106,13 @@ Copy from [`backend/.env.example`](backend/.env.example).
 | `JWT_SECRET` | Yes | Strong secret; never commit real values |
 | `PORT` | No | `3000` |
 | `CORS_ORIGIN` | No | Vite dev: `http://localhost:5173`. Compose: `http://localhost:8080` |
-| `JWT_EXPIRES_IN` | No | `1h` |
+| `JWT_EXPIRES_IN` | No | Legacy alias; prefer `JWT_ACCESS_EXPIRES_IN` (`15m`) |
+| `JWT_ACCESS_EXPIRES_IN` | No | Short-lived access JWT |
+| `JWT_REFRESH_EXPIRES_IN` | No | Refresh cookie lifetime (`7d`) |
+| `REFRESH_COOKIE_NAME` | No | Default `refresh_token` |
+| `COOKIE_SECURE` / `COOKIE_SAME_SITE` | No | Dev: `false` / `lax`; enable `Secure` behind HTTPS in prod |
+| `FRONTEND_URL` | No | Verification link base (Compose: `http://localhost:8080`) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | No | Compose uses **Mailpit** (`mailpit:1025`); empty `SMTP_HOST` captures mail in tests |
 | `THROTTLE_LIMIT` | No | `100` requests per window |
 | `THROTTLE_TTL_MS` | No | `60000` (window length in ms) |
 
@@ -131,12 +139,14 @@ docker compose up --build
 | http://localhost:3000/api | API |
 | http://localhost:3000/api/docs | Swagger |
 | http://localhost:3000/api/health | Health (+ DB readiness) |
+| http://localhost:8025 | Mailpit UI (verification emails in Compose) |
 
 ## Docker Compose
 
 [`docker-compose.yml`](docker-compose.yml) defines:
 
-- **mongo** — `mongo:7`, named volume `mongo_data`, `mongosh` healthcheck
+- **mailpit** — SMTP capture for dev (`8025` UI, `1025` SMTP)
+- **mongo** — `mongo:7`, named volume `mongo_data`, TCP healthcheck
 - **backend** — builds [`backend/Dockerfile`](backend/Dockerfile); port `3000`; waits for healthy Mongo; healthcheck hits `/api/health`
 - **frontend** — builds [`frontend/Dockerfile`](frontend/Dockerfile) with `VITE_API_URL`; nginx SPA on port `8080`; waits for healthy backend
 

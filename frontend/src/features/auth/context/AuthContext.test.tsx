@@ -13,6 +13,8 @@ import { ApiError } from '@/lib/api-client';
 
 vi.mock('@/lib/auth-api', () => ({
   getMe: vi.fn(),
+  refreshSession: vi.fn(),
+  logoutSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
 }));
@@ -21,6 +23,7 @@ const mockUser = {
   id: 'user-1',
   email: 'user@example.com',
   name: 'Jane Doe',
+  emailVerifiedAt: '2026-01-02T00:00:00.000Z',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -31,7 +34,7 @@ function AuthProbe() {
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="email">{user?.email ?? 'none'}</span>
-      <button type="button" onClick={logout}>
+      <button type="button" onClick={() => void logout()}>
         logout
       </button>
     </div>
@@ -52,13 +55,15 @@ describe('AuthProvider', () => {
   beforeEach(() => {
     clearAccessToken();
     vi.mocked(authApi.getMe).mockReset();
+    vi.mocked(authApi.refreshSession).mockReset();
+    vi.mocked(authApi.logoutSession).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('bootstraps an authenticated session when getMe succeeds', async () => {
+  it('bootstraps via getMe when an in-memory token exists', async () => {
     setAccessToken('stored-token');
     vi.mocked(authApi.getMe).mockResolvedValueOnce({ user: mockUser });
 
@@ -67,25 +72,42 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(screen.getByTestId('status')).toHaveTextContent('authenticated');
     });
-    expect(screen.getByTestId('email')).toHaveTextContent('user@example.com');
     expect(authApi.getMe).toHaveBeenCalledWith('stored-token');
+    expect(authApi.refreshSession).not.toHaveBeenCalled();
   });
 
-  it('clears storage when getMe returns 401', async () => {
+  it('bootstraps via refresh when no access token is stored', async () => {
+    vi.mocked(authApi.refreshSession).mockResolvedValueOnce({
+      user: mockUser,
+      accessToken: 'refreshed-token',
+    });
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status')).toHaveTextContent('authenticated');
+    });
+    expect(getAccessToken()).toBe('refreshed-token');
+  });
+
+  it('clears storage when getMe returns 401 and refresh fails', async () => {
     setAccessToken('expired-token');
     vi.mocked(authApi.getMe).mockRejectedValueOnce(
       new ApiError(401, 'Unauthorized'),
+    );
+    vi.mocked(authApi.refreshSession).mockRejectedValueOnce(
+      new ApiError(401, 'Invalid refresh token'),
     );
 
     renderAuthProvider();
 
     await waitFor(() => {
-      expect(getAccessToken()).toBeNull();
+      expect(screen.getByTestId('status')).toHaveTextContent('unauthenticated');
     });
-    expect(screen.getByTestId('email')).toHaveTextContent('none');
+    expect(getAccessToken()).toBeNull();
   });
 
-  it('logout clears the stored token', async () => {
+  it('logout clears the stored token and calls the API', async () => {
     setAccessToken('stored-token');
     vi.mocked(authApi.getMe).mockResolvedValueOnce({ user: mockUser });
     const user = userEvent.setup();
@@ -98,7 +120,10 @@ describe('AuthProvider', () => {
 
     await user.click(screen.getByRole('button', { name: 'logout' }));
 
-    expect(getAccessToken()).toBeNull();
+    await waitFor(() => {
+      expect(getAccessToken()).toBeNull();
+    });
+    expect(authApi.logoutSession).toHaveBeenCalled();
     expect(screen.getByTestId('status')).toHaveTextContent('unauthenticated');
   });
 });

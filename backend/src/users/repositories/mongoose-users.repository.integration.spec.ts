@@ -46,6 +46,7 @@ describe('MongooseUsersRepository (integration)', () => {
     expect(user.name).toBe('Jane Doe');
     expect(user.createdAt).toBeInstanceOf(Date);
     expect(user.updatedAt).toBeInstanceOf(Date);
+    expect(user.emailVerifiedAt).toBeNull();
     expect(user).not.toHaveProperty('passwordHash');
   });
 
@@ -131,5 +132,64 @@ describe('MongooseUsersRepository (integration)', () => {
     await expect(
       repository.findById('not-a-valid-object-id'),
     ).resolves.toBeNull();
+  });
+
+  it('setEmailVerificationToken and findByEmailVerificationTokenHash', async () => {
+    const user = await repository.create({
+      email: 'verify@example.com',
+      name: 'Verify',
+      passwordHash: 'hash',
+    });
+    const tokenHash = 'sha256-verification-hash';
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await repository.setEmailVerificationToken(user.id, tokenHash, expiresAt);
+
+    const found =
+      await repository.findByEmailVerificationTokenHash(tokenHash);
+    expect(found?.id).toBe(user.id);
+
+    await repository.markEmailVerified(user.id);
+    const afterVerify =
+      await repository.findByEmailVerificationTokenHash(tokenHash);
+    expect(afterVerify).toBeNull();
+
+    const verified = await repository.findById(user.id);
+    expect(verified?.emailVerifiedAt).toBeInstanceOf(Date);
+  });
+
+  it('incrementTokenVersion bumps version for JWT invalidation', async () => {
+    const user = await repository.create({
+      email: 'version@example.com',
+      name: 'Version',
+      passwordHash: 'hash',
+    });
+
+    const auth0 = await repository.findByIdWithAuthFields(user.id);
+    expect(auth0?.tokenVersion).toBe(0);
+
+    const next = await repository.incrementTokenVersion(user.id);
+    expect(next).toBe(1);
+
+    const auth1 = await repository.findByIdWithAuthFields(user.id);
+    expect(auth1?.tokenVersion).toBe(1);
+  });
+
+  it('clearEmailVerificationToken removes pending verification', async () => {
+    const user = await repository.create({
+      email: 'clear@example.com',
+      name: 'Clear',
+      passwordHash: 'hash',
+    });
+    const tokenHash = 'hash-to-clear';
+    await repository.setEmailVerificationToken(
+      user.id,
+      tokenHash,
+      new Date(Date.now() + 60_000),
+    );
+    await repository.clearEmailVerificationToken(user.id);
+    const found =
+      await repository.findByEmailVerificationTokenHash(tokenHash);
+    expect(found).toBeNull();
   });
 });

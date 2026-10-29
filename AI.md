@@ -570,7 +570,7 @@ Source: easygenerator **Full Stack Test Task** PDF (functionality + submission +
 | Sign-up form (email, name, password rules) | **Done** | Zod + backend-aligned rules |
 | Sign-in form (email, password) | **Done** | |
 | App page welcome text exactly | **Done** | `"Welcome to the application."` |
-| Logout (optional in spec) | **Done** | Client logout; no server endpoint |
+| Logout (optional in spec) | **Done** | Server logout + refresh revocation |
 | Design / creativity | **Done** | shadcn/ui login-01 adapted for sign-up |
 
 ### Back-end requirements
@@ -598,13 +598,13 @@ Source: easygenerator **Full Stack Test Task** PDF (functionality + submission +
 | API documentation | **Done** | Swagger `/api/docs` |
 | Error handling | **Partial** | Nest exceptions, generic 500/401; no global exception filter doc |
 | Logging | **Partial** | Nest default logging; no structured logging product |
-| Security hardening | **Partial** | bcrypt, throttling, CORS, findings doc; no Helmet/revocation |
+| Security hardening | **Done** | Email verification, refresh rotation, Helmet, tokenVersion revocation — see `docs/M09-auth-hardening.md` |
 
 ### Gaps / missing (explicit)
 
 1. **Public GitHub URL** — required for submission; not created here.  
 2. **Automated Docker Compose in CI** — out of scope for current workflow.  
-3. **Server-side logout / JWT revocation** — intentionally omitted (stateless JWT design).  
+3. **Server-side logout / JWT revocation** — **Done (M09):** refresh cookie revocation + `tokenVersion` on access JWT.  
 4. **Path spelling** — prompts/spec sometimes say `/auth/signup`; implementation uses **`/api/auth/sign-up`** (documented; frontend and tests use implemented paths).  
 5. **Optional Vue stack** — N/A; React chosen.
 

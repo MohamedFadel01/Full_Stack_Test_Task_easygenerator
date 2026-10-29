@@ -1,21 +1,27 @@
-import { UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import {
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Response } from 'express';
 import { PasswordHasher } from './password-hasher.js';
 import { SignInUseCase } from './sign-in.use-case.js';
+import { TokenService } from './token.service.js';
 import { UsersRepository } from '../users/repositories/users.repository.js';
 
 describe('SignInUseCase', () => {
   let useCase: SignInUseCase;
   let usersRepository: UsersRepository;
   let passwordHasher: PasswordHasher;
-  let jwtService: JwtService;
+  let tokenService: TokenService;
+  let response: Response;
 
   const recordWithHash = {
     id: '507f1f77bcf86cd799439011',
     email: 'user@example.com',
     name: 'Jane Doe',
     passwordHash: 'stored-hash',
+    emailVerifiedAt: new Date('2026-01-02T00:00:00.000Z'),
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };
@@ -26,35 +32,60 @@ describe('SignInUseCase', () => {
       findByEmail: vi.fn(),
       findByEmailWithPasswordHash: vi.fn(),
       findById: vi.fn(),
+      findByIdWithAuthFields: vi.fn(),
+      setEmailVerificationToken: vi.fn(),
+      clearEmailVerificationToken: vi.fn(),
+      markEmailVerified: vi.fn(),
+      incrementTokenVersion: vi.fn(),
+      findByEmailVerificationTokenHash: vi.fn(),
     };
     passwordHasher = {
       hash: vi.fn(),
       compare: vi.fn().mockResolvedValue(true),
     };
-    jwtService = {
-      sign: vi.fn().mockReturnValue('jwt-token'),
-    } as unknown as JwtService;
+    tokenService = {
+      issueSession: vi.fn().mockResolvedValue({
+        accessToken: 'jwt-token',
+        user: recordWithHash,
+      }),
+    } as unknown as TokenService;
+    response = {} as Response;
 
-    useCase = new SignInUseCase(usersRepository, passwordHasher, jwtService);
+    useCase = new SignInUseCase(usersRepository, passwordHasher, tokenService);
   });
 
-  it('returns user and access token for valid credentials', async () => {
+  it('returns session for verified user with valid credentials', async () => {
     vi.mocked(usersRepository.findByEmailWithPasswordHash).mockResolvedValue(
       recordWithHash,
     );
 
-    const result = await useCase.execute({
-      email: 'user@example.com',
-      password: 'Secret1!',
+    const result = await useCase.execute(
+      {
+        email: 'user@example.com',
+        password: 'Secret1!',
+      },
+      response,
+    );
+
+    expect(tokenService.issueSession).toHaveBeenCalledWith(
+      recordWithHash.id,
+      response,
+    );
+    expect(result.accessToken).toBe('jwt-token');
+  });
+
+  it('throws ForbiddenException when email is not verified', async () => {
+    vi.mocked(usersRepository.findByEmailWithPasswordHash).mockResolvedValue({
+      ...recordWithHash,
+      emailVerifiedAt: null,
     });
 
-    expect(passwordHasher.compare).toHaveBeenCalledWith(
-      'Secret1!',
-      'stored-hash',
-    );
-    expect(jwtService.sign).toHaveBeenCalledWith({ sub: recordWithHash.id });
-    expect(result.accessToken).toBe('jwt-token');
-    expect(result.user).not.toHaveProperty('passwordHash');
+    await expect(
+      useCase.execute(
+        { email: 'user@example.com', password: 'Secret1!' },
+        response,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('throws UnauthorizedException for unknown email', async () => {
@@ -63,7 +94,10 @@ describe('SignInUseCase', () => {
     );
 
     await expect(
-      useCase.execute({ email: 'missing@example.com', password: 'Secret1!' }),
+      useCase.execute(
+        { email: 'missing@example.com', password: 'Secret1!' },
+        response,
+      ),
     ).rejects.toMatchObject({
       message: 'Invalid credentials',
       status: 401,
@@ -77,7 +111,7 @@ describe('SignInUseCase', () => {
     vi.mocked(passwordHasher.compare).mockResolvedValue(false);
 
     await expect(
-      useCase.execute({ email: 'user@example.com', password: 'wrong' }),
+      useCase.execute({ email: 'user@example.com', password: 'wrong' }, response),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -87,7 +121,7 @@ describe('SignInUseCase', () => {
     );
 
     await expect(
-      useCase.execute({ email: 'user@example.com', password: 'Secret1!' }),
+      useCase.execute({ email: 'user@example.com', password: 'Secret1!' }, response),
     ).rejects.toMatchObject({ status: 500 });
   });
 });

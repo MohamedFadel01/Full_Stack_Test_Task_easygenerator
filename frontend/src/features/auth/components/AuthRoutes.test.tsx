@@ -7,10 +7,13 @@ import {
 } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import * as authApi from '@/lib/auth-api';
-import { clearAccessToken } from '@/lib/auth-storage';
+import { clearAccessToken, setAccessToken } from '@/lib/auth-storage';
+import { ApiError } from '@/lib/api-client';
 
 vi.mock('@/lib/auth-api', () => ({
   getMe: vi.fn(),
+  refreshSession: vi.fn(),
+  logoutSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
 }));
@@ -19,6 +22,9 @@ describe('Auth route guards', () => {
   beforeEach(() => {
     clearAccessToken();
     vi.mocked(authApi.getMe).mockReset();
+    vi.mocked(authApi.refreshSession).mockRejectedValue(
+      new ApiError(401, 'Invalid refresh token'),
+    );
   });
 
   it('redirects unauthenticated users away from protected routes', async () => {
@@ -41,7 +47,7 @@ describe('Auth route guards', () => {
   });
 
   it('shows loading state while bootstrapping', () => {
-    sessionStorage.setItem('auth.accessToken', 'token');
+    setAccessToken('token');
     vi.mocked(authApi.getMe).mockImplementation(
       () => new Promise(() => undefined),
     );
@@ -67,11 +73,12 @@ describe('Auth route guards', () => {
         id: '1',
         email: 'user@example.com',
         name: 'Jane',
+        emailVerifiedAt: '2026-01-02T00:00:00.000Z',
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
     });
-    sessionStorage.setItem('auth.accessToken', 'token');
+    setAccessToken('token');
 
     render(
       <MemoryRouter initialEntries={['/app']}>
@@ -97,11 +104,12 @@ describe('Auth route guards', () => {
         id: '1',
         email: 'user@example.com',
         name: 'Jane',
+        emailVerifiedAt: '2026-01-02T00:00:00.000Z',
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
     });
-    sessionStorage.setItem('auth.accessToken', 'token');
+    setAccessToken('token');
 
     render(
       <MemoryRouter initialEntries={['/sign-in']}>

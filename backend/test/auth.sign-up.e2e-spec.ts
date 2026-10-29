@@ -15,14 +15,17 @@ import {
   stopMongoMemoryServer,
 } from './helpers/mongo-memory.js';
 import { applyAppConfiguration } from './helpers/nest-app.js';
+import {
+  applyAuthE2eEnv,
+  resetCapturedEmails,
+} from './helpers/auth-e2e.helpers.js';
 
 describe('POST /api/auth/sign-up (e2e)', () => {
   let app: INestApplication<App>;
   let AppModule: typeof import('../src/app.module.js').AppModule;
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'test-jwt-secret-for-e2e';
-    process.env.JWT_EXPIRES_IN = '1h';
+    applyAuthE2eEnv();
     await startMongoMemoryServer();
     AppModule = (await import('../src/app.module.js')).AppModule;
   });
@@ -39,6 +42,7 @@ describe('POST /api/auth/sign-up (e2e)', () => {
     app = moduleFixture.createNestApplication();
     applyAppConfiguration(app);
     await app.init();
+    resetCapturedEmails(app);
   });
 
   afterEach(async () => {
@@ -51,16 +55,18 @@ describe('POST /api/auth/sign-up (e2e)', () => {
     password: 'Secret1!',
   };
 
-  it('returns 201 with user and accessToken for valid registration', async () => {
+  it('returns 201 with user and message without accessToken', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/auth/sign-up')
       .send(validBody)
       .expect(201);
 
-    expect(response.body.accessToken).toEqual(expect.any(String));
+    expect(response.body.message).toMatch(/check your email/i);
+    expect(response.body).not.toHaveProperty('accessToken');
     expect(response.body.user).toMatchObject({
       email: 'signup@example.com',
       name: 'Jane Doe',
+      emailVerifiedAt: null,
     });
     expect(response.body.user.id).toEqual(expect.any(String));
     expect(response.body.user).not.toHaveProperty('passwordHash');

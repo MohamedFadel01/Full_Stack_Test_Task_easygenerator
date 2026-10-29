@@ -6,12 +6,14 @@ import { GuestRoute } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { ThemeProvider } from '@/features/theme/ThemeProvider';
 import * as authApi from '@/lib/auth-api';
-import { clearAccessToken } from '@/lib/auth-storage';
+import { clearAccessToken, getAccessToken } from '@/lib/auth-storage';
 import { ApiError } from '@/lib/api-client';
 import { SignUpPage } from '@/pages/SignUpPage';
 
 vi.mock('@/lib/auth-api', () => ({
   getMe: vi.fn(),
+  refreshSession: vi.fn(),
+  logoutSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
 }));
@@ -25,6 +27,7 @@ function renderSignUpPage() {
             <Route element={<GuestRoute />}>
               <Route path="/sign-up" element={<SignUpPage />} />
             </Route>
+            <Route path="/check-email" element={<div>check email page</div>} />
             <Route path="/app" element={<div>app page</div>} />
           </Routes>
         </AuthProvider>
@@ -37,6 +40,7 @@ describe('SignUpPage', () => {
   beforeEach(() => {
     clearAccessToken();
     vi.mocked(authApi.signUp).mockReset();
+    vi.mocked(authApi.refreshSession).mockRejectedValue(new ApiError(401, 'x'));
   });
 
   it('shows password validation errors', async () => {
@@ -84,17 +88,18 @@ describe('SignUpPage', () => {
     );
   });
 
-  it('stores token and navigates to the app after successful sign-up', async () => {
+  it('navigates to check email after successful sign-up', async () => {
     const user = userEvent.setup();
     vi.mocked(authApi.signUp).mockResolvedValueOnce({
       user: {
         id: 'user-1',
         email: 'new@example.com',
         name: 'Jane Doe',
+        emailVerifiedAt: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
-      accessToken: 'signup-jwt',
+      message: 'Check your email',
     });
 
     renderSignUpPage();
@@ -111,8 +116,8 @@ describe('SignUpPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign up' }));
 
     await waitFor(() => {
-      expect(screen.getByText('app page')).toBeInTheDocument();
+      expect(screen.getByText('check email page')).toBeInTheDocument();
     });
-    expect(sessionStorage.getItem('auth.accessToken')).toBe('signup-jwt');
+    expect(getAccessToken()).toBeNull();
   });
 });

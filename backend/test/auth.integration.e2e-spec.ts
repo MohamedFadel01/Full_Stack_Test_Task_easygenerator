@@ -20,6 +20,11 @@ import {
   stopMongoMemoryServer,
 } from './helpers/mongo-memory.js';
 import { applyAppConfiguration } from './helpers/nest-app.js';
+import {
+  applyAuthE2eEnv,
+  resetCapturedEmails,
+  verifyLatestEmailFor,
+} from './helpers/auth-e2e.helpers.js';
 
 describe('Auth integration (e2e)', () => {
   let app: INestApplication<App>;
@@ -27,8 +32,7 @@ describe('Auth integration (e2e)', () => {
   let userModel: Model<UserDocument>;
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'test-jwt-secret-for-e2e';
-    process.env.JWT_EXPIRES_IN = '1h';
+    applyAuthE2eEnv();
     process.env.THROTTLE_LIMIT = '1000';
     process.env.THROTTLE_TTL_MS = '60000';
     await startMongoMemoryServer();
@@ -48,6 +52,7 @@ describe('Auth integration (e2e)', () => {
     applyAppConfiguration(app);
     await app.init();
     userModel = app.get(getModelToken(User.name));
+    resetCapturedEmails(app);
   });
 
   afterEach(async () => {
@@ -131,6 +136,8 @@ describe('Auth integration (e2e)', () => {
       .send({ email, name: 'Bcrypt User', password })
       .expect(201);
 
+    await verifyLatestEmailFor(app, email);
+
     const stored = await userModel
       .findOne({ email: email.toLowerCase() })
       .select('+passwordHash')
@@ -160,7 +167,9 @@ describe('Auth integration (e2e)', () => {
       .expect(201);
 
     expect(signUpResponse.body.user).not.toHaveProperty('passwordHash');
-    const { accessToken } = signUpResponse.body;
+    expect(signUpResponse.body).not.toHaveProperty('accessToken');
+
+    const { accessToken } = await verifyLatestEmailFor(app, email);
 
     const meAfterSignUp = await request(app.getHttpServer())
       .get('/api/auth/me')
@@ -197,6 +206,12 @@ describe('Auth integration (e2e)', () => {
         findByEmail: async () => null,
         findByEmailWithPasswordHash: async () => null,
         findById: async () => null,
+        findByIdWithAuthFields: async () => null,
+        setEmailVerificationToken: async () => undefined,
+        clearEmailVerificationToken: async () => undefined,
+        markEmailVerified: async () => null,
+        incrementTokenVersion: async () => 0,
+        findByEmailVerificationTokenHash: async () => null,
       })
       .compile();
 
@@ -233,6 +248,12 @@ describe('Auth integration (e2e)', () => {
         findByEmail: async () => null,
         findByEmailWithPasswordHash: async () => null,
         findById: async () => null,
+        findByIdWithAuthFields: async () => null,
+        setEmailVerificationToken: async () => undefined,
+        clearEmailVerificationToken: async () => undefined,
+        markEmailVerified: async () => null,
+        incrementTokenVersion: async () => 0,
+        findByEmailVerificationTokenHash: async () => null,
       })
       .compile();
 

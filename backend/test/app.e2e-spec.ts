@@ -47,6 +47,11 @@ describe('AppController (e2e)', () => {
     await app?.close();
   });
 
+  it('/api/health (GET) includes security headers from helmet', async () => {
+    const response = await request(app.getHttpServer()).get('/api/health');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+  });
+
   it('/api/health (GET)', () => {
     return request(app.getHttpServer())
       .get('/api/health')

@@ -6,10 +6,14 @@ import { ProtectedRoute } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { ThemeProvider } from '@/features/theme/ThemeProvider';
 import * as authApi from '@/lib/auth-api';
+import { clearAccessToken, getAccessToken, setAccessToken } from '@/lib/auth-storage';
+import { ApiError } from '@/lib/api-client';
 import { AppPage } from '@/pages/AppPage';
 
 vi.mock('@/lib/auth-api', () => ({
   getMe: vi.fn(),
+  refreshSession: vi.fn(),
+  logoutSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
 }));
@@ -18,15 +22,18 @@ const mockUser = {
   id: 'user-1',
   email: 'user@example.com',
   name: 'Jane Doe',
+  emailVerifiedAt: '2026-01-02T00:00:00.000Z',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
 describe('AppPage', () => {
   beforeEach(() => {
-    sessionStorage.clear();
+    clearAccessToken();
+    setAccessToken('token');
     vi.mocked(authApi.getMe).mockResolvedValue({ user: mockUser });
-    sessionStorage.setItem('auth.accessToken', 'token');
+    vi.mocked(authApi.logoutSession).mockResolvedValue(undefined);
+    vi.mocked(authApi.refreshSession).mockRejectedValue(new ApiError(401, 'x'));
   });
 
   it('shows the required welcome message and logs out', async () => {
@@ -58,6 +65,6 @@ describe('AppPage', () => {
     await waitFor(() => {
       expect(screen.getByText('sign-in page')).toBeInTheDocument();
     });
-    expect(sessionStorage.getItem('auth.accessToken')).toBeNull();
+    expect(getAccessToken()).toBeNull();
   });
 });

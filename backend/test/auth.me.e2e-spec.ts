@@ -16,6 +16,11 @@ import {
   stopMongoMemoryServer,
 } from './helpers/mongo-memory.js';
 import { applyAppConfiguration } from './helpers/nest-app.js';
+import {
+  applyAuthE2eEnv,
+  registerAndVerifyUser,
+  resetCapturedEmails,
+} from './helpers/auth-e2e.helpers.js';
 
 describe('GET /api/auth/me (e2e)', () => {
   let app: INestApplication<App>;
@@ -23,8 +28,7 @@ describe('GET /api/auth/me (e2e)', () => {
   const jwtSecret = 'test-jwt-secret-for-e2e';
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = jwtSecret;
-    process.env.JWT_EXPIRES_IN = '1h';
+    applyAuthE2eEnv();
     await startMongoMemoryServer();
     AppModule = (await import('../src/app.module.js')).AppModule;
   });
@@ -41,6 +45,7 @@ describe('GET /api/auth/me (e2e)', () => {
     app = moduleFixture.createNestApplication();
     applyAppConfiguration(app);
     await app.init();
+    resetCapturedEmails(app);
   });
 
   afterEach(async () => {
@@ -54,12 +59,8 @@ describe('GET /api/auth/me (e2e)', () => {
       password: 'Secret1!',
     };
 
-    const response = await request(app.getHttpServer())
-      .post('/api/auth/sign-up')
-      .send(signUpBody)
-      .expect(201);
-
-    return response.body.accessToken as string;
+    const { accessToken } = await registerAndVerifyUser(app, signUpBody);
+    return accessToken;
   }
 
   it('returns 401 when Authorization header is missing', async () => {
@@ -80,10 +81,12 @@ describe('GET /api/auth/me (e2e)', () => {
       .expect(401);
   });
 
-  it('returns 401 for expired token', async () => {
-    const token = jwt.sign({ sub: '507f1f77bcf86cd799439011' }, jwtSecret, {
-      expiresIn: '-1s',
-    });
+  it('returns 401 for expired access token', async () => {
+    const token = jwt.sign(
+      { sub: '507f1f77bcf86cd799439011', ver: 0, typ: 'access' },
+      jwtSecret,
+      { expiresIn: '-1s' },
+    );
 
     await request(app.getHttpServer())
       .get('/api/auth/me')
@@ -92,7 +95,10 @@ describe('GET /api/auth/me (e2e)', () => {
   });
 
   it('returns 401 when token subject user does not exist', async () => {
-    const token = jwt.sign({ sub: '507f1f77bcf86cd799439011' }, jwtSecret);
+    const token = jwt.sign(
+      { sub: '507f1f77bcf86cd799439011', ver: 0, typ: 'access' },
+      jwtSecret,
+    );
 
     await request(app.getHttpServer())
       .get('/api/auth/me')
@@ -101,7 +107,19 @@ describe('GET /api/auth/me (e2e)', () => {
   });
 
   it('returns 401 when token subject is not a valid user id', async () => {
-    const token = jwt.sign({ sub: 'not-a-valid-object-id' }, jwtSecret);
+    const token = jwt.sign(
+      { sub: 'not-a-valid-object-id', ver: 0, typ: 'access' },
+      jwtSecret,
+    );
+
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
+
+  it('returns 401 for legacy JWT without typ/ver claims', async () => {
+    const token = jwt.sign({ sub: '507f1f77bcf86cd799439011' }, jwtSecret);
 
     await request(app.getHttpServer())
       .get('/api/auth/me')

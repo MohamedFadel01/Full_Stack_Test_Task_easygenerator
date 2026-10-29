@@ -57,7 +57,13 @@ export function SignInForm({ className }: SignInFormProps) {
       navigate('/app', { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
-        setApiError(error.message);
+        if (error.status === 403 && error.message === 'EMAIL_NOT_VERIFIED') {
+          setApiError(
+            'Verify your email before signing in. Check your inbox for the link.',
+          );
+        } else {
+          setApiError(error.message);
+        }
       } else {
         setApiError('Unable to sign in. Please try again.');
       }

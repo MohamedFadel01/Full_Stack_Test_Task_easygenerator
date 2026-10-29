@@ -1,20 +1,22 @@
 import { expect, test } from '@playwright/test';
-
-function uniqueEmail(label: string): string {
-  return `user-${label}-${Date.now()}@example.com`;
-}
-
-const validPassword = 'Secret1!';
+import {
+  applyRefreshCookies,
+  registerAndVerifyViaApi,
+  uniqueEmail,
+  validPassword,
+} from './auth-api.helpers';
 
 test.describe('Auth flows (Playwright)', () => {
-  test('registers, reloads session, and logs out', async ({ page }) => {
+  test('registers, reloads session, and logs out', async ({ page, request }) => {
     const email = uniqueEmail('register');
+    const { setCookie } = await registerAndVerifyViaApi(request, {
+      email,
+      name: 'E2E User',
+      password: validPassword,
+    });
 
-    await page.goto('/sign-up');
-    await page.getByLabel('Name').fill('E2E User');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(validPassword);
-    await page.getByRole('button', { name: 'Sign up' }).click();
+    await applyRefreshCookies(page.context(), setCookie);
+    await page.goto('/app');
 
     await expect(
       page.getByRole('heading', { name: 'Welcome to the application.' }),
@@ -29,28 +31,17 @@ test.describe('Auth flows (Playwright)', () => {
     await expect(
       page.getByRole('heading', { name: 'Sign in to your account' }),
     ).toBeVisible();
-
-    const tokenAfterLogout = await page.evaluate(() =>
-      sessionStorage.getItem('auth.accessToken'),
-    );
-    expect(tokenAfterLogout).toBeNull();
   });
 
-  test('shows safe API error on failed sign-in', async ({ page }) => {
+  test('shows safe API error on failed sign-in', async ({ page, request }) => {
     const email = uniqueEmail('fail');
+    await registerAndVerifyViaApi(request, {
+      email,
+      name: 'E2E User',
+      password: validPassword,
+    });
 
-    await page.goto('/sign-up');
-    await page.getByLabel('Name').fill('E2E User');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(validPassword);
-    await page.getByRole('button', { name: 'Sign up' }).click();
-
-    await expect(
-      page.getByRole('heading', { name: 'Welcome to the application.' }),
-    ).toBeVisible();
-
-    await page.getByRole('button', { name: 'Log out' }).click();
-
+    await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('WrongPass1!');
     await page.getByRole('button', { name: 'Sign in' }).click();
@@ -60,11 +51,9 @@ test.describe('Auth flows (Playwright)', () => {
     await expect(page.locator('body')).not.toContainText('stack');
   });
 
-  test('redirects to sign-in when session token is invalid', async ({ page }) => {
-    await page.goto('/sign-in');
-    await page.evaluate(() => {
-      sessionStorage.setItem('auth.accessToken', 'invalid.jwt.token');
-    });
+  test('redirects to sign-in when refresh session is unavailable', async ({
+    page,
+  }) => {
     await page.goto('/app');
 
     await expect(
@@ -73,5 +62,20 @@ test.describe('Auth flows (Playwright)', () => {
     await expect(
       page.getByRole('heading', { name: 'Welcome to the application.' }),
     ).not.toBeVisible();
+  });
+
+  test('sign-up shows check your email screen', async ({ page }) => {
+    const email = uniqueEmail('check-email');
+
+    await page.goto('/sign-up');
+    await page.getByLabel('Name').fill('E2E User');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password').fill(validPassword);
+    await page.getByRole('button', { name: 'Sign up' }).click();
+
+    await expect(
+      page.getByRole('heading', { name: 'Check your email' }),
+    ).toBeVisible();
+    await expect(page.getByText(email)).toBeVisible();
   });
 });

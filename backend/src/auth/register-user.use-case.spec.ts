@@ -2,9 +2,10 @@ import {
   ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DuplicateEmailError } from '../users/errors/duplicate-email.error.js';
+import type { EmailService } from '../email/email.service.interface.js';
 import { PasswordHasher } from './password-hasher.js';
 import { RegisterUserUseCase } from './register-user.use-case.js';
 import { UsersRepository } from '../users/repositories/users.repository.js';
@@ -13,12 +14,14 @@ describe('RegisterUserUseCase', () => {
   let useCase: RegisterUserUseCase;
   let usersRepository: UsersRepository;
   let passwordHasher: PasswordHasher;
-  let jwtService: JwtService;
+  let emailService: EmailService;
+  let configService: ConfigService;
 
   const safeUser = {
     id: '507f1f77bcf86cd799439011',
     email: 'user@example.com',
     name: 'Jane Doe',
+    emailVerifiedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };
@@ -29,23 +32,35 @@ describe('RegisterUserUseCase', () => {
       findByEmail: vi.fn(),
       findByEmailWithPasswordHash: vi.fn(),
       findById: vi.fn(),
+      findByIdWithAuthFields: vi.fn(),
+      setEmailVerificationToken: vi.fn(),
+      clearEmailVerificationToken: vi.fn(),
+      markEmailVerified: vi.fn(),
+      incrementTokenVersion: vi.fn(),
+      findByEmailVerificationTokenHash: vi.fn(),
     };
     passwordHasher = {
       hash: vi.fn().mockResolvedValue('hashed-password'),
       compare: vi.fn(),
     };
-    jwtService = {
-      sign: vi.fn().mockReturnValue('jwt-token'),
-    } as unknown as JwtService;
+    emailService = {
+      sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+      getCapturedVerificationEmails: vi.fn().mockReturnValue([]),
+      clearCapturedVerificationEmails: vi.fn(),
+    };
+    configService = {
+      get: vi.fn().mockReturnValue('http://localhost:5173'),
+    } as unknown as ConfigService;
 
     useCase = new RegisterUserUseCase(
       usersRepository,
       passwordHasher,
-      jwtService,
+      emailService,
+      configService,
     );
   });
 
-  it('registers a user with hashed password and returns user with access token', async () => {
+  it('registers a user, stores verification token, and sends email without JWT', async () => {
     vi.mocked(usersRepository.create).mockResolvedValue(safeUser);
 
     const result = await useCase.execute({
@@ -60,9 +75,18 @@ describe('RegisterUserUseCase', () => {
       name: 'Jane Doe',
       passwordHash: 'hashed-password',
     });
-    expect(jwtService.sign).toHaveBeenCalledWith({ sub: safeUser.id });
-    expect(result).toEqual({ user: safeUser, accessToken: 'jwt-token' });
-    expect(result.user).not.toHaveProperty('passwordHash');
+    expect(usersRepository.setEmailVerificationToken).toHaveBeenCalledWith(
+      safeUser.id,
+      expect.any(String),
+      expect.any(Date),
+    );
+    expect(emailService.sendVerificationEmail).toHaveBeenCalledWith(
+      safeUser.email,
+      expect.stringContaining('/verify-email?token='),
+    );
+    expect(result.user).toEqual(safeUser);
+    expect(result.message).toMatch(/check your email/i);
+    expect(result).not.toHaveProperty('accessToken');
   });
 
   it('throws ConflictException when email is already registered', async () => {

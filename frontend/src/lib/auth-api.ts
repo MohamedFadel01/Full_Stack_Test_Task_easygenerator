@@ -1,5 +1,11 @@
 import { apiRequest } from '@/lib/api-client';
-import type { AuthSuccessResponse, MeResponse, SafeUser } from '@/types/auth';
+import type {
+  AuthSuccessResponse,
+  MeResponse,
+  MessageResponse,
+  SafeUser,
+  SignUpResponse,
+} from '@/types/auth';
 
 export type SignUpPayload = {
   email: string;
@@ -12,12 +18,11 @@ export type SignInPayload = {
   password: string;
 };
 
-export async function signUp(
-  payload: SignUpPayload,
-): Promise<AuthSuccessResponse> {
-  return apiRequest<AuthSuccessResponse>('/auth/sign-up', {
+export async function signUp(payload: SignUpPayload): Promise<SignUpResponse> {
+  return apiRequest<SignUpResponse>('/auth/sign-up', {
     method: 'POST',
     body: JSON.stringify(payload),
+    auth: true,
   });
 }
 
@@ -27,6 +32,39 @@ export async function signIn(
   return apiRequest<AuthSuccessResponse>('/auth/sign-in', {
     method: 'POST',
     body: JSON.stringify(payload),
+    auth: true,
+  });
+}
+
+export async function verifyEmail(token: string): Promise<AuthSuccessResponse> {
+  return apiRequest<AuthSuccessResponse>('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+    auth: true,
+  });
+}
+
+export async function resendVerification(
+  email: string,
+): Promise<MessageResponse> {
+  return apiRequest<MessageResponse>('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    auth: true,
+  });
+}
+
+export async function refreshSession(): Promise<AuthSuccessResponse> {
+  return apiRequest<AuthSuccessResponse>('/auth/refresh', {
+    method: 'POST',
+    auth: true,
+  });
+}
+
+export async function logoutSession(): Promise<void> {
+  await apiRequest<void>('/auth/logout', {
+    method: 'POST',
+    auth: true,
   });
 }
 

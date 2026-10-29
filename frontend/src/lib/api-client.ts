@@ -31,18 +31,20 @@ export function parseNestErrorMessage(body: unknown, fallback: string): string {
 
 type ApiRequestOptions = RequestInit & {
   accessToken?: string;
+  /** Send cookies for refresh/logout/sign-in (cross-origin credentialed requests). */
+  auth?: boolean;
 };
 
 export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const { accessToken, headers, ...init } = options;
+  const { accessToken, auth, headers, ...init } = options;
   const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 
   const response = await fetch(url, {
     ...init,
-    credentials: 'omit',
+    credentials: auth ? 'include' : 'omit',
     headers: {
       ...(init.body !== undefined
         ? { 'Content-Type': 'application/json' }

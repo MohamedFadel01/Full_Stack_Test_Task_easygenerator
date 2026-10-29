@@ -10,6 +10,9 @@ export class SafeUserDto {
   @ApiProperty({ example: 'Jane Doe' })
   name!: string;
 
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  emailVerifiedAt!: Date | null;
+
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
 

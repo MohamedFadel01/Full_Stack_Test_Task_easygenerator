@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { signIn, signUp, getMe } from '@/lib/auth-api';
+import { signIn, signUp, getMe, refreshSession } from '@/lib/auth-api';
 
 describe('auth-api', () => {
   beforeEach(() => {
@@ -10,16 +10,17 @@ describe('auth-api', () => {
     vi.unstubAllGlobals();
   });
 
-  it('signUp posts to /auth/sign-up and returns the response', async () => {
+  it('signUp posts to /auth/sign-up with credentials', async () => {
     const mockResponse = {
       user: {
         id: '1',
         email: 'a@example.com',
         name: 'Jane',
+        emailVerifiedAt: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
-      accessToken: 'token-123',
+      message: 'Check your email',
     };
 
     vi.mocked(fetch).mockResolvedValueOnce({
@@ -39,12 +40,7 @@ describe('auth-api', () => {
       'http://localhost:3000/api/auth/sign-up',
       expect.objectContaining({
         method: 'POST',
-        credentials: 'omit',
-        body: JSON.stringify({
-          email: 'a@example.com',
-          name: 'Jane',
-          password: 'Secret1!',
-        }),
+        credentials: 'include',
       }),
     );
   });
@@ -64,7 +60,7 @@ describe('auth-api', () => {
     });
   });
 
-  it('getMe sends Bearer authorization', async () => {
+  it('refreshSession posts to /auth/refresh with credentials', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -73,6 +69,35 @@ describe('auth-api', () => {
           id: '1',
           email: 'a@example.com',
           name: 'Jane',
+          emailVerifiedAt: '2026-01-02T00:00:00.000Z',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+        accessToken: 'new-token',
+      }),
+    } as Response);
+
+    await refreshSession();
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:3000/api/auth/refresh',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      }),
+    );
+  });
+
+  it('getMe sends Bearer authorization without credentials', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        user: {
+          id: '1',
+          email: 'a@example.com',
+          name: 'Jane',
+          emailVerifiedAt: '2026-01-02T00:00:00.000Z',
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-01T00:00:00.000Z',
         },
@@ -85,6 +110,7 @@ describe('auth-api', () => {
       'http://localhost:3000/api/auth/me',
       expect.objectContaining({
         method: 'GET',
+        credentials: 'omit',
         headers: expect.objectContaining({
           Authorization: 'Bearer jwt-token',
         }),

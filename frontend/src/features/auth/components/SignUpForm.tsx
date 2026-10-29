@@ -20,7 +20,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { signUp } from '@/lib/auth-api';
-import { useAuth } from '@/features/auth/context/AuthContext';
 import {
   signUpSchema,
   type SignUpFormValues,
@@ -32,7 +31,6 @@ type SignUpFormProps = {
 
 export function SignUpForm({ className }: SignUpFormProps) {
   const navigate = useNavigate();
-  const { setSession } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
 
   const form = useForm<SignUpFormValues>({
@@ -53,9 +51,11 @@ export function SignUpForm({ className }: SignUpFormProps) {
   async function onSubmit(values: SignUpFormValues) {
     setApiError(null);
     try {
-      const { user, accessToken } = await signUp(values);
-      setSession(user, accessToken);
-      navigate('/app', { replace: true });
+      const { user, message } = await signUp(values);
+      navigate('/check-email', {
+        replace: true,
+        state: { email: user.email, message },
+      });
     } catch (error) {
       if (error instanceof ApiError) {
         setApiError(error.message);

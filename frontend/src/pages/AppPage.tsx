@@ -8,8 +8,8 @@ export function AppPage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     navigate('/sign-in', { replace: true });
   }
 

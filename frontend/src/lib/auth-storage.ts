@@ -1,13 +1,13 @@
-const ACCESS_TOKEN_KEY = 'auth.accessToken';
+let inMemoryAccessToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+  return inMemoryAccessToken;
 }
 
 export function setAccessToken(token: string): void {
-  sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+  inMemoryAccessToken = token;
 }
 
 export function clearAccessToken(): void {
-  sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+  inMemoryAccessToken = null;
 }

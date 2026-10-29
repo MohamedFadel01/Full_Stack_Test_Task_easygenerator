@@ -6,6 +6,7 @@ import { User, UserDocument } from '../schemas/user.schema.js';
 import {
   CreateUserRecord,
   SafeUser,
+  UserAuthFields,
   UserWithPasswordHash,
   UsersRepository,
 } from './users.repository.js';
@@ -19,6 +20,7 @@ function toSafeUser(document: UserDocument): SafeUser {
     id: document._id.toString(),
     email: document.email,
     name: document.name,
+    emailVerifiedAt: document.emailVerifiedAt ?? null,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
   };
@@ -45,6 +47,8 @@ export class MongooseUsersRepository implements UsersRepository {
         email: normalizeEmail(record.email),
         name: record.name,
         passwordHash: record.passwordHash,
+        emailVerifiedAt: null,
+        tokenVersion: 0,
       });
       return toSafeUser(document);
     } catch (error: unknown) {
@@ -85,6 +89,87 @@ export class MongooseUsersRepository implements UsersRepository {
       return null;
     }
     const document = await this.userModel.findById(id);
+    if (!document) {
+      return null;
+    }
+    return toSafeUser(document);
+  }
+
+  async findByIdWithAuthFields(id: string): Promise<UserAuthFields | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    const document = await this.userModel
+      .findById(id)
+      .select('+passwordHash');
+    if (!document) {
+      return null;
+    }
+    return {
+      ...toSafeUser(document),
+      passwordHash: document.passwordHash,
+      tokenVersion: document.tokenVersion ?? 0,
+    };
+  }
+
+  async setEmailVerificationToken(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userModel.updateOne(
+      { _id: new Types.ObjectId(userId) },
+      {
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpiresAt: expiresAt,
+      },
+    );
+  }
+
+  async clearEmailVerificationToken(userId: string): Promise<void> {
+    await this.userModel.updateOne(
+      { _id: new Types.ObjectId(userId) },
+      {
+        emailVerificationTokenHash: null,
+        emailVerificationExpiresAt: null,
+      },
+    );
+  }
+
+  async markEmailVerified(userId: string): Promise<SafeUser | null> {
+    const document = await this.userModel.findByIdAndUpdate(
+      new Types.ObjectId(userId),
+      {
+        emailVerifiedAt: new Date(),
+        emailVerificationTokenHash: null,
+        emailVerificationExpiresAt: null,
+      },
+      { new: true },
+    );
+    if (!document) {
+      return null;
+    }
+    return toSafeUser(document);
+  }
+
+  async incrementTokenVersion(userId: string): Promise<number> {
+    const document = await this.userModel.findByIdAndUpdate(
+      new Types.ObjectId(userId),
+      { $inc: { tokenVersion: 1 } },
+      { new: true },
+    );
+    return document?.tokenVersion ?? 0;
+  }
+
+  async findByEmailVerificationTokenHash(
+    tokenHash: string,
+  ): Promise<SafeUser | null> {
+    const document = await this.userModel
+      .findOne({
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpiresAt: { $gt: new Date() },
+      })
+      .select('+emailVerificationTokenHash +emailVerificationExpiresAt');
     if (!document) {
       return null;
     }

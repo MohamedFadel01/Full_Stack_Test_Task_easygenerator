@@ -6,12 +6,14 @@ import { GuestRoute } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { ThemeProvider } from '@/features/theme/ThemeProvider';
 import * as authApi from '@/lib/auth-api';
-import { clearAccessToken } from '@/lib/auth-storage';
+import { clearAccessToken, getAccessToken } from '@/lib/auth-storage';
 import { ApiError } from '@/lib/api-client';
 import { SignInPage } from '@/pages/SignInPage';
 
 vi.mock('@/lib/auth-api', () => ({
   getMe: vi.fn(),
+  refreshSession: vi.fn(),
+  logoutSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
 }));
@@ -20,6 +22,7 @@ const mockUser = {
   id: 'user-1',
   email: 'user@example.com',
   name: 'Jane Doe',
+  emailVerifiedAt: '2026-01-02T00:00:00.000Z',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -45,6 +48,7 @@ describe('SignInPage', () => {
   beforeEach(() => {
     clearAccessToken();
     vi.mocked(authApi.getMe).mockReset();
+    vi.mocked(authApi.refreshSession).mockRejectedValue(new ApiError(401, 'x'));
     vi.mocked(authApi.signIn).mockReset();
   });
 
@@ -90,7 +94,7 @@ describe('SignInPage', () => {
     await waitFor(() => {
       expect(screen.getByText('app page')).toBeInTheDocument();
     });
-    expect(sessionStorage.getItem('auth.accessToken')).toBe('jwt-token');
+    expect(getAccessToken()).toBe('jwt-token');
   });
 
   it('prevents duplicate submissions while loading', async () => {
