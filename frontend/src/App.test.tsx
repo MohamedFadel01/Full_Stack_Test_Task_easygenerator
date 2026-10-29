@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
+import { ThemeProvider } from '@/features/theme/ThemeProvider';
 
 vi.mock('@/lib/auth-api', () => ({
   getMe: vi.fn(),
@@ -12,9 +13,11 @@ vi.mock('@/lib/auth-api', () => ({
 describe('App routing', () => {
   it('redirects unauthenticated users from / to sign-in', async () => {
     render(
-      <AuthProvider>
-        <App />
-      </AuthProvider>,
+      <ThemeProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </ThemeProvider>,
     );
 
     await waitFor(() => {

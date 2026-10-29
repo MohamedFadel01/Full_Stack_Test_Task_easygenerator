@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProtectedRoute } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
+import { ThemeProvider } from '@/features/theme/ThemeProvider';
 import * as authApi from '@/lib/auth-api';
 import { AppPage } from '@/pages/AppPage';
 
@@ -33,14 +34,16 @@ describe('AppPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/app']}>
-        <AuthProvider>
-          <Routes>
-            <Route element={<ProtectedRoute />}>
-              <Route path="/app" element={<AppPage />} />
-            </Route>
-            <Route path="/sign-in" element={<div>sign-in page</div>} />
-          </Routes>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Routes>
+              <Route element={<ProtectedRoute />}>
+                <Route path="/app" element={<AppPage />} />
+              </Route>
+              <Route path="/sign-in" element={<div>sign-in page</div>} />
+            </Routes>
+          </AuthProvider>
+        </ThemeProvider>
       </MemoryRouter>,
     );
 

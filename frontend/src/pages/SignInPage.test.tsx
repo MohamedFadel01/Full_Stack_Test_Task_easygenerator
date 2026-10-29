@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuestRoute } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
+import { ThemeProvider } from '@/features/theme/ThemeProvider';
 import * as authApi from '@/lib/auth-api';
 import { clearAccessToken } from '@/lib/auth-storage';
 import { ApiError } from '@/lib/api-client';
@@ -26,14 +27,16 @@ const mockUser = {
 function renderSignInPage() {
   return render(
     <MemoryRouter initialEntries={['/sign-in']}>
-      <AuthProvider>
-        <Routes>
-          <Route element={<GuestRoute />}>
-            <Route path="/sign-in" element={<SignInPage />} />
-          </Route>
-          <Route path="/app" element={<div>app page</div>} />
-        </Routes>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            <Route element={<GuestRoute />}>
+              <Route path="/sign-in" element={<SignInPage />} />
+            </Route>
+            <Route path="/app" element={<div>app page</div>} />
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   );
 }
