@@ -1,4 +1,6 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { getConnectionToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
@@ -49,6 +51,48 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/health')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect({ status: 'ok', database: 'up' });
+  });
+
+  it('/api/docs-json (GET) exposes auth sign-up path', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/docs-json')
+      .expect(200);
+
+    const body = response.body as { paths?: Record<string, unknown> };
+    expect(body.paths?.['/api/auth/sign-up']).toBeDefined();
+  });
+
+  it('/api/health (GET) returns 503 when database is disconnected', async () => {
+    const { AppController } = await import('../src/app.controller.js');
+    const { AppService } = await import('../src/app.service.js');
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      controllers: [AppController],
+      providers: [
+        AppService,
+        {
+          provide: getConnectionToken(),
+          useValue: { readyState: 0 },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (_key: string, defaultValue?: unknown) => defaultValue,
+          },
+        },
+      ],
+    }).compile();
+
+    const degradedApp = moduleFixture.createNestApplication();
+    applyAppConfiguration(degradedApp);
+    await degradedApp.init();
+
+    await request(degradedApp.getHttpServer())
+      .get('/api/health')
+      .expect(503)
+      .expect({ status: 'degraded', database: 'down' });
+
+    await degradedApp.close();
   });
 });

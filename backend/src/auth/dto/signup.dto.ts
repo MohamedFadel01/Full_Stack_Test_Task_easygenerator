@@ -6,9 +6,11 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 // Whitespace: trim email and name before validation; password is not trimmed.
 export class SignUpDto {
+  @ApiProperty({ example: 'user@example.com' })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
@@ -16,6 +18,7 @@ export class SignUpDto {
   @IsNotEmpty()
   email!: string;
 
+  @ApiProperty({ example: 'Jane Doe', minLength: 3 })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
@@ -23,6 +26,12 @@ export class SignUpDto {
   @MinLength(3)
   name!: string;
 
+  @ApiProperty({
+    example: 'Secret1!',
+    minLength: 8,
+    description:
+      'At least 8 characters with a letter, a number, and a special character',
+  })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
