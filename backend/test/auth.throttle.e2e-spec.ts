@@ -93,6 +93,6 @@ describe('Auth rate limiting (e2e)', () => {
     await request(app.getHttpServer())
       .get('/api/health')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect({ status: 'ok', database: 'up' });
   });
 });

@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import { AppService } from './app.service.js';
+import { AppService, type HealthOk } from './app.service.js';
 
 @Controller()
 export class AppController {
@@ -8,7 +8,7 @@ export class AppController {
 
   @SkipThrottle()
   @Get('health')
-  getHealth(): { status: 'ok' } {
-    return this.appService.getHealth();
+  getHealth(): HealthOk {
+    return this.appService.getHealthOrThrow();
   }
 }
