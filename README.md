@@ -46,19 +46,47 @@ All auth routes are under the `/api` prefix. Send the JWT as **`Authorization: B
 
 **Logout:** Stateless JWT — there is **no** server `POST /auth/logout`. The client removes the token (frontend milestone). Tokens remain valid until `JWT_EXPIRES_IN` (default `1h`) unless you add revocation later.
 
+### Frontend auth UI (M05)
+
+Configure the API base URL in `frontend/.env` (see `frontend/.env.example`):
+
+```bash
+VITE_API_URL=http://localhost:3000/api
+```
+
+The SPA stores the JWT in **`sessionStorage`** (not `localStorage`) and sends `Authorization: Bearer <accessToken>` on `GET /api/auth/me`. Logout clears storage and React auth state only.
+
+| Route | Purpose |
+|-------|---------|
+| `/sign-in` | Sign in (public; redirects to `/app` when already authenticated) |
+| `/sign-up` | Register (public; on success stores token and opens `/app`) |
+| `/app` | Protected page — welcome text **"Welcome to the application."** with logout |
+
+UI is built with [shadcn/ui](https://ui.shadcn.com/) using the **login-01** block layout for sign-in and sign-up.
+
+### Integration and security (M06)
+
+Auth routes are rate-limited via `@nestjs/throttler` (configure `THROTTLE_LIMIT` and `THROTTLE_TTL_MS` in `backend/.env`). `/api/health` is excluded from throttling.
+
+Full-stack browser tests use Playwright against a live API (MongoDB memory server) and Vite preview with API proxy.
+
+See [docs/M06-security-findings.md](docs/M06-security-findings.md) for the security review summary.
+
 ## Quality checks
 
 ```bash
 cd backend && npm run typecheck && npm run lint && npm run format:check && npm test && npm run test:e2e
-cd frontend && npm run typecheck && npm run lint && npm run format:check && npm test
+cd frontend && npm run typecheck && npm run lint && npm run format:check && npm test && npm run test:e2e && npm run build
 ```
+
+Install Playwright browsers once: `cd frontend && npx playwright install chromium`
 
 ## Scripts reference
 
 | Location | Scripts |
 |----------|---------|
-| `backend/` | `start:dev`, `build`, `lint`, `format`, `format:check`, `typecheck`, `test`, `test:e2e` |
-| `frontend/` | `dev`, `build`, `lint`, `format`, `format:check`, `typecheck`, `test`, `test:watch` |
+| `backend/` | `start:dev`, `build`, `lint`, `format`, `format:check`, `typecheck`, `test`, `test:e2e`, `start:e2e-live` |
+| `frontend/` | `dev`, `build`, `lint`, `format`, `format:check`, `typecheck`, `test`, `test:watch`, `test:e2e` |
 
 ## AI usage
 
