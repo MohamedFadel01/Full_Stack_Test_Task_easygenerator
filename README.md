@@ -13,6 +13,7 @@ Production-oriented authentication module: **NestJS 12** API with **MongoDB**, *
 | **Frontend** | `/sign-up`, `/sign-in`, protected `/app` with exact welcome text; shadcn/ui **login-01** layout; client logout |
 | **Session** | JWT in **`sessionStorage`**; reload restores session via `/auth/me`; no server logout endpoint |
 | **Hardening** | Global rate limiting on auth routes; `/api/health` excluded; integration + Playwright e2e |
+| **Logging** | HTTP access lines on the backend (`HTTP` logger); MongoDB operations logged via backend `MongoDB` logger (not health probes) |
 | **DX** | Multi-stage Dockerfiles, root Compose (Mongo + API + nginx SPA), Swagger at `/api/docs`, CI workflow |
 
 Interactive API docs: **http://localhost:3000/api/docs** (when the backend is running).
@@ -251,6 +252,14 @@ Documented in depth in [`docs/M06-security-findings.md`](docs/M06-security-findi
 | CSRF | Low risk for Bearer-only API (no cookie session) |
 | Errors | No password hashes in responses; generic 401/500 where appropriate |
 | Rate limit | Configurable via `THROTTLE_*`; **429** on excess auth traffic |
+| Logging | **`HTTP`**: method, path, status, duration (skips `GET /api/health`). **`MongoDB`**: Mongoose query operations on the backend stdout. Mongo **container** runs `mongod --quiet` with a TCP healthcheck to avoid `mongosh` spam every few seconds |
+
+**View logs in Docker:**
+
+```bash
+docker compose logs -f backend    # HTTP + MongoDB operation lines
+docker compose logs -f mongo      # quiet unless mongod errors/warnings
+```
 
 **Limitations:**
 
