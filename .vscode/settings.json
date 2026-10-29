@@ -1,0 +1,5 @@
+{
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "eslint.workingDirectories": ["backend", "frontend"],
+  "typescript.tsserver.maxTsServerMemory": 4096
+}
