@@ -1,14 +1,24 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import App from './App';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import App from '@/App';
+import { AuthProvider } from '@/features/auth/context/AuthContext';
 
-describe('App', () => {
-  it('renders scaffold placeholder', () => {
-    render(<App />);
+vi.mock('@/lib/auth-api', () => ({
+  getMe: vi.fn(),
+  signIn: vi.fn(),
+  signUp: vi.fn(),
+}));
 
-    expect(
-      screen.getByRole('heading', { name: 'Easygenerator Auth' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Scaffold ready')).toBeInTheDocument();
+describe('App routing', () => {
+  it('redirects unauthenticated users from / to sign-in', async () => {
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Sign in to your account')).toBeInTheDocument();
+    });
   });
 });
