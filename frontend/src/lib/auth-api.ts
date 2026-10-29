@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api-client';
+import { getAccessToken } from '@/lib/auth-storage';
 import type {
   AuthSuccessResponse,
   MeResponse,
@@ -64,6 +65,20 @@ export async function refreshSession(): Promise<AuthSuccessResponse> {
 export async function logoutSession(): Promise<void> {
   await apiRequest<void>('/auth/logout', {
     method: 'POST',
+    auth: true,
+  });
+}
+
+export async function deleteAccount(password: string): Promise<void> {
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+
+  await apiRequest<void>('/auth/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ password }),
+    accessToken,
     auth: true,
   });
 }

@@ -212,6 +212,7 @@ describe('Auth integration (e2e)', () => {
         markEmailVerified: async () => null,
         incrementTokenVersion: async () => 0,
         findByEmailVerificationTokenHash: async () => null,
+        deleteById: async () => false,
       })
       .compile();
 
@@ -254,6 +255,7 @@ describe('Auth integration (e2e)', () => {
         markEmailVerified: async () => null,
         incrementTokenVersion: async () => 0,
         findByEmailVerificationTokenHash: async () => null,
+        deleteById: async () => false,
       })
       .compile();
 

@@ -175,4 +175,14 @@ export class MongooseUsersRepository implements UsersRepository {
     }
     return toSafeUser(document);
   }
+
+  async deleteById(id: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(id)) {
+      return false;
+    }
+    const result = await this.userModel.deleteOne({
+      _id: new Types.ObjectId(id),
+    });
+    return result.deletedCount === 1;
+  }
 }

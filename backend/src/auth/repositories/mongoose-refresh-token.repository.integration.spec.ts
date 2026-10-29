@@ -127,4 +127,30 @@ describe('MongooseRefreshTokenRepository (integration)', () => {
       .exec();
     expect(active).toHaveLength(0);
   });
+
+  it('deleteByUserId removes all refresh tokens for user', async () => {
+    const user = await usersRepository.create({
+      email: 'delete-tokens@example.com',
+      name: 'Delete Tokens',
+      passwordHash: 'hash',
+    });
+
+    await refreshRepository.create({
+      userId: user.id,
+      familyId: 'family-del',
+      tokenHash: 'del1',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+    await refreshRepository.create({
+      userId: user.id,
+      familyId: 'family-del-2',
+      tokenHash: 'del2',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+
+    await refreshRepository.deleteByUserId(user.id);
+
+    const remaining = await refreshModel.find({ userId: user.id }).exec();
+    expect(remaining).toHaveLength(0);
+  });
 });

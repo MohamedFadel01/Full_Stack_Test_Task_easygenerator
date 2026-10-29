@@ -41,4 +41,5 @@ export interface UsersRepository {
   findByEmailVerificationTokenHash(
     tokenHash: string,
   ): Promise<SafeUser | null>;
+  deleteById(id: string): Promise<boolean>;
 }

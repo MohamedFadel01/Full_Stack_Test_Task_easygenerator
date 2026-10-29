@@ -175,6 +175,18 @@ describe('MongooseUsersRepository (integration)', () => {
     expect(auth1?.tokenVersion).toBe(1);
   });
 
+  it('deleteById removes the user document', async () => {
+    const user = await repository.create({
+      email: 'delete@example.com',
+      name: 'Delete Me',
+      passwordHash: 'hash',
+    });
+
+    expect(await repository.deleteById(user.id)).toBe(true);
+    expect(await repository.findById(user.id)).toBeNull();
+    expect(await repository.deleteById(user.id)).toBe(false);
+  });
+
   it('clearEmailVerificationToken removes pending verification', async () => {
     const user = await repository.create({
       email: 'clear@example.com',

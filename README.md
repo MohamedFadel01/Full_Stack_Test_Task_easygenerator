@@ -10,6 +10,7 @@ Production-oriented authentication module: **NestJS 12** API with **MongoDB**, *
 | **Email verify** | `POST /api/auth/verify-email`, `POST /api/auth/resend-verification`; link opens `/verify-email?token=…` on the SPA |
 | **Sign-in** | `POST /api/auth/sign-in` after verification; **403** `EMAIL_NOT_VERIFIED` if pending |
 | **Session refresh / logout** | `POST /api/auth/refresh` (httpOnly cookie), `POST /api/auth/logout` (revokes refresh, bumps `tokenVersion`) |
+| **Delete account** | `DELETE /api/auth/account` with current password (Bearer); removes user and refresh tokens |
 | **Protected API** | `GET /api/auth/me` (Bearer access JWT with `typ` + `ver` claims) |
 | **Health** | `GET /api/health` — **200** when Mongo is connected, **503** when not |
 | **Frontend** | `/sign-up`, `/check-email`, `/verify-email`, `/sign-in`, protected `/app`; server logout |

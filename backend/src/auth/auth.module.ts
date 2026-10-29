@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthTokensModule } from './auth-tokens.module.js';
 import { BcryptPasswordHasherService } from './bcrypt-password-hasher.service.js';
+import { DeleteAccountUseCase } from './delete-account.use-case.js';
 import { GetCurrentUserUseCase } from './get-current-user.use-case.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { PASSWORD_HASHER } from './password-hasher.js';
@@ -54,6 +55,7 @@ import { VerifyEmailUseCase } from './verify-email.use-case.js';
     LogoutUseCase,
     TokenService,
     GetCurrentUserUseCase,
+    DeleteAccountUseCase,
     JwtStrategy,
     JwtAuthGuard,
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasherService },

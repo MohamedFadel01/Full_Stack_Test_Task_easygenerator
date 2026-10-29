@@ -71,4 +71,10 @@ export class MongooseRefreshTokenRepository implements RefreshTokenRepository {
       { revokedAt: new Date() },
     );
   }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.refreshTokenModel.deleteMany({
+      userId: new Types.ObjectId(userId),
+    });
+  }
 }

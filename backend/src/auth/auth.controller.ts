@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -27,6 +28,8 @@ import {
   ResendVerificationDto,
   VerifyEmailDto,
 } from './dto/verification.dto.js';
+import { DeleteAccountDto } from './dto/delete-account.dto.js';
+import { DeleteAccountUseCase } from './delete-account.use-case.js';
 import { GetCurrentUserUseCase } from './get-current-user.use-case.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RegisterUserUseCase } from './register-user.use-case.js';
@@ -50,6 +53,7 @@ export class AuthController {
     private readonly refreshSessionUseCase: RefreshSessionUseCase,
     private readonly logoutUseCase: LogoutUseCase,
     private readonly getCurrentUserUseCase: GetCurrentUserUseCase,
+    private readonly deleteAccountUseCase: DeleteAccountUseCase,
   ) {}
 
   @Post('sign-up')
@@ -140,5 +144,28 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Missing or invalid token' })
   me(@Req() request: { user: JwtValidatedUser }) {
     return this.getCurrentUserUseCase.execute(request.user.userId);
+  }
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Permanently delete the authenticated account',
+    description: 'Requires current password. Clears refresh cookie.',
+  })
+  @ApiResponse({ status: 204, description: 'Account deleted' })
+  @ApiResponse({ status: 401, description: 'Invalid password or token' })
+  async deleteAccount(
+    @Req() request: Request & { user: JwtValidatedUser },
+    @Body() body: DeleteAccountDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.deleteAccountUseCase.execute({
+      userId: request.user.userId,
+      password: body.password,
+      request,
+      response,
+    });
   }
 }
