@@ -123,10 +123,7 @@ describe('DeleteAccountSection', () => {
     );
     expect(deleteButton).toBeDisabled();
 
-    await user.type(
-      screen.getByLabelText('Confirm with your password'),
-      '8',
-    );
+    await user.type(screen.getByLabelText('Confirm with your password'), '8');
     expect(deleteButton).toBeEnabled();
   });
 
@@ -144,9 +141,9 @@ describe('DeleteAccountSection', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Delete my account' }));
 
-    expect(
-      await screen.findByRole('alert'),
-    ).toHaveTextContent(/incorrect password/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /incorrect password/i,
+    );
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

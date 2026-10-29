@@ -6,7 +6,11 @@ import { ProtectedRoute } from '@/features/auth/components/AuthRoutes';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { ThemeProvider } from '@/features/theme/ThemeProvider';
 import * as authApi from '@/lib/auth-api';
-import { clearAccessToken, getAccessToken, setAccessToken } from '@/lib/auth-storage';
+import {
+  clearAccessToken,
+  getAccessToken,
+  setAccessToken,
+} from '@/lib/auth-storage';
 import { ApiError } from '@/lib/api-client';
 import { AppPage } from '@/pages/AppPage';
 
