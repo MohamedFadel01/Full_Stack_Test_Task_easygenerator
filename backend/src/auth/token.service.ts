@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
@@ -114,8 +110,7 @@ export class TokenService {
     }
 
     const tokenHash = hashOpaqueToken(refreshToken);
-    const stored =
-      await this.refreshTokenRepository.findByTokenHash(tokenHash);
+    const stored = await this.refreshTokenRepository.findByTokenHash(tokenHash);
 
     if (!stored || stored.revokedAt || stored.expiresAt <= new Date()) {
       throw new UnauthorizedException('Invalid refresh token');

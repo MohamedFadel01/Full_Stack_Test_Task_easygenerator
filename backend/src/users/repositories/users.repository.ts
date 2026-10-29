@@ -38,8 +38,6 @@ export interface UsersRepository {
   clearEmailVerificationToken(userId: string): Promise<void>;
   markEmailVerified(userId: string): Promise<SafeUser | null>;
   incrementTokenVersion(userId: string): Promise<number>;
-  findByEmailVerificationTokenHash(
-    tokenHash: string,
-  ): Promise<SafeUser | null>;
+  findByEmailVerificationTokenHash(tokenHash: string): Promise<SafeUser | null>;
   deleteById(id: string): Promise<boolean>;
 }

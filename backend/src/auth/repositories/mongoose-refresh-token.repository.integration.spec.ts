@@ -9,13 +9,19 @@ import {
 } from '../../../test/helpers/mongo-memory.js';
 import { User, UserDocument } from '../../users/schemas/user.schema.js';
 import { UsersModule } from '../../users/users.module.js';
-import { USERS_REPOSITORY, UsersRepository } from '../../users/repositories/users.repository.js';
+import {
+  USERS_REPOSITORY,
+  UsersRepository,
+} from '../../users/repositories/users.repository.js';
 import { AuthTokensModule } from '../auth-tokens.module.js';
 import {
   REFRESH_TOKEN_REPOSITORY,
   RefreshTokenRepository,
 } from './refresh-token.repository.js';
-import { RefreshToken, RefreshTokenDocument } from '../schemas/refresh-token.schema.js';
+import {
+  RefreshToken,
+  RefreshTokenDocument,
+} from '../schemas/refresh-token.schema.js';
 
 describe('MongooseRefreshTokenRepository (integration)', () => {
   let refreshRepository: RefreshTokenRepository;

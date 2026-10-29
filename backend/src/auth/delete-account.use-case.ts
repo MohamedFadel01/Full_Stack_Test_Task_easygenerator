@@ -42,10 +42,7 @@ export class DeleteAccountUseCase {
 
       const passwordMatches =
         auth !== null &&
-        (await this.passwordHasher.compare(
-          input.password,
-          auth.passwordHash,
-        ));
+        (await this.passwordHasher.compare(input.password, auth.passwordHash));
 
       if (!auth || !passwordMatches) {
         throw new UnauthorizedException('Invalid credentials');

@@ -99,9 +99,7 @@ export class MongooseUsersRepository implements UsersRepository {
     if (!Types.ObjectId.isValid(id)) {
       return null;
     }
-    const document = await this.userModel
-      .findById(id)
-      .select('+passwordHash');
+    const document = await this.userModel.findById(id).select('+passwordHash');
     if (!document) {
       return null;
     }

@@ -10,16 +10,13 @@ export class UserSchemaMigrationService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.userModel.updateMany(
-      { emailVerifiedAt: { $exists: false } },
-      [
-        {
-          $set: {
-            emailVerifiedAt: '$createdAt',
-            tokenVersion: { $ifNull: ['$tokenVersion', 0] },
-          },
+    await this.userModel.updateMany({ emailVerifiedAt: { $exists: false } }, [
+      {
+        $set: {
+          emailVerifiedAt: '$createdAt',
+          tokenVersion: { $ifNull: ['$tokenVersion', 0] },
         },
-      ],
-    );
+      },
+    ]);
   }
 }

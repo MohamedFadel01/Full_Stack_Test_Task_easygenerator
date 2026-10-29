@@ -91,8 +91,8 @@ describe('TokenService', () => {
 
   it('refreshSession rejects missing cookie', async () => {
     const request = { cookies: {} } as Request;
-    await expect(service.refreshSession(request, response)).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      service.refreshSession(request, response),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

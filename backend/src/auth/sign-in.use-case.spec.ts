@@ -1,7 +1,4 @@
-import {
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Response } from 'express';
 import { PasswordHasher } from './password-hasher.js';
@@ -111,7 +108,10 @@ describe('SignInUseCase', () => {
     vi.mocked(passwordHasher.compare).mockResolvedValue(false);
 
     await expect(
-      useCase.execute({ email: 'user@example.com', password: 'wrong' }, response),
+      useCase.execute(
+        { email: 'user@example.com', password: 'wrong' },
+        response,
+      ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -121,7 +121,10 @@ describe('SignInUseCase', () => {
     );
 
     await expect(
-      useCase.execute({ email: 'user@example.com', password: 'Secret1!' }, response),
+      useCase.execute(
+        { email: 'user@example.com', password: 'Secret1!' },
+        response,
+      ),
     ).rejects.toMatchObject({ status: 500 });
   });
 });

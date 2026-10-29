@@ -145,8 +145,7 @@ describe('MongooseUsersRepository (integration)', () => {
 
     await repository.setEmailVerificationToken(user.id, tokenHash, expiresAt);
 
-    const found =
-      await repository.findByEmailVerificationTokenHash(tokenHash);
+    const found = await repository.findByEmailVerificationTokenHash(tokenHash);
     expect(found?.id).toBe(user.id);
 
     await repository.markEmailVerified(user.id);
@@ -200,8 +199,7 @@ describe('MongooseUsersRepository (integration)', () => {
       new Date(Date.now() + 60_000),
     );
     await repository.clearEmailVerificationToken(user.id);
-    const found =
-      await repository.findByEmailVerificationTokenHash(tokenHash);
+    const found = await repository.findByEmailVerificationTokenHash(tokenHash);
     expect(found).toBeNull();
   });
 });

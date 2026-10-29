@@ -34,10 +34,7 @@ import { GetCurrentUserUseCase } from './get-current-user.use-case.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RegisterUserUseCase } from './register-user.use-case.js';
 import { ResendVerificationUseCase } from './resend-verification.use-case.js';
-import {
-  LogoutUseCase,
-  RefreshSessionUseCase,
-} from './session.use-cases.js';
+import { LogoutUseCase, RefreshSessionUseCase } from './session.use-cases.js';
 import { SignInUseCase } from './sign-in.use-case.js';
 import { VerifyEmailUseCase } from './verify-email.use-case.js';
 import type { JwtValidatedUser } from './types/jwt-validated-user.js';
